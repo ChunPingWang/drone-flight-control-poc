@@ -6,3 +6,10 @@
 
 # PX4 build output
 build/
+
+# Simulation generated outputs
+simulations/output_*.png
+
+# Python cache
+__pycache__/
+*.pyc

@@ -92,12 +92,31 @@ QGC 會自動透過 UDP 14550 連接到 PX4 SITL，無需額外設定。
 
 ## 深入文件
 
-本 PoC 包含兩份深入技術文件，分別解析兩大開源飛控的感測器融合與 PID 調校：
+本 PoC 包含技術文件與初學者教學，分別解析兩大開源飛控的感測器融合與 PID 調校：
 
 | 文件 | 飛控框架 | 內容 |
 |------|---------|------|
 | [PX4 EKF2 感測器融合與 PID 調校](docs/PX4_EKF2_Fusion_and_PID_Tuning.md) | PX4 | EKF2 誤差狀態公式、25 維狀態向量、空速/側滑融合、串級 PID + FF 調校 |
 | [ArduPlane EKF3 感測器融合與 PID 調校](docs/ArduPlane_EKF3_Fusion_and_PID_Tuning.md) | ArduPilot | EKF3 感測器親和性與車道切換、24 維狀態向量、FF 主導 + PID 修正調校 |
+| [初學者教學指南](Tutorial_EKF3_PID_Beginner_Guide.md) | ArduPilot | 搭配 Python 模擬的入門教學，無需硬體 |
+
+## 模擬驗證
+
+本專案包含 4 個 Python 模擬程式，用純軟體方式驗證 EKF3 和 PID 文件中的核心概念：
+
+```bash
+# 一鍵執行所有模擬驗證
+python3 simulations/run_all.py
+```
+
+| 模擬 | 驗證內容 | 對應章節 |
+|------|----------|----------|
+| `sim1_ekf_state_estimation.py` | EKF 狀態估算、GPS 融合、GPS Glitch 拒絕 | 1.1-1.5, 1.9-1.10 |
+| `sim2_pid_tuning.py` | PID 增益比較、振盪診斷、Airspeed Scaling | 2.1-2.5, 2.9.2 |
+| `sim3_sensor_fusion.py` | Multi-Lane 架構、風速估計、高度源比較 | 1.2, 1.5-1.8, 1.10 |
+| `sim4_tecs_navigation.py` | L1 導航（不同 Period）、TECS（不同 SPDWEIGHT） | 2.7-2.8 |
+
+需求：Python 3.7+、numpy、matplotlib、scipy
 
 ### PX4 EKF2 vs ArduPlane EKF3 關鍵差異
 

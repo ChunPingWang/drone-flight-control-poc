@@ -66,8 +66,10 @@ python3 simulations/run_all.py
 
 ```
 drone-flight-control-poc/
-├── ArduPlane_EKF3_Fusion_and_PID_Tuning.md  # 技術參考文件（進階）
 ├── Tutorial_EKF3_PID_Beginner_Guide.md      # 本教學文件（入門）
+├── docs/
+│   ├── ArduPlane_EKF3_Fusion_and_PID_Tuning.md  # EKF3 技術參考文件（進階）
+│   └── PX4_EKF2_Fusion_and_PID_Tuning.md       # PX4 EKF2 技術參考文件
 └── simulations/
     ├── run_all.py                           # 一鍵執行所有模擬
     ├── sim1_ekf_state_estimation.py         # 模擬 1: EKF 狀態估算
@@ -489,7 +491,7 @@ Mission Planner 地面站操作
 - **ArduPilot 官方文件**：https://ardupilot.org/plane/
 - **ArduPilot SITL 模擬器**：https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html
 - **UAV Log Viewer**：https://plot.ardupilot.org
-- **本專案技術參考文件**：`ArduPlane_EKF3_Fusion_and_PID_Tuning.md`
+- **本專案技術參考文件**：`docs/ArduPlane_EKF3_Fusion_and_PID_Tuning.md`
 
 ---
 
