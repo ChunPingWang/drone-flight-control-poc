@@ -11,7 +11,16 @@ Gazebo Harmonic 模擬器中的 RC Cessna 固定翼飛機模型。右側面板�
 ## 快速啟動
 
 ```bash
-# 啟動 RC Cessna（預設）
+# 1. Clone repo（含 PX4-Autopilot submodule）
+git clone --recursive https://github.com/ChunPingWang/drone-flight-control-poc.git
+cd drone-flight-control-poc
+
+# 如果已經 clone 但忘了加 --recursive，補執行：
+git submodule update --init --recursive
+```
+
+```bash
+# 2. 啟動 RC Cessna（預設）
 ./start-sitl.sh
 
 # 啟動進階固定翼
