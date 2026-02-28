@@ -2,6 +2,12 @@
 
 Ubuntu 24.04 上的 PX4 SITL 開發環境，搭配 Gazebo Harmonic 模擬器，用於固定翼無人機模擬。
 
+## Gazebo Sim 模擬畫面
+
+![Gazebo Sim - RC Cessna](docs/images/gazebo-sim-rc-cessna.png)
+
+Gazebo Harmonic 模擬器中的 RC Cessna 固定翼飛機模型。右側面板顯示 World 設定（物理引擎：gz-physics-dartsim-plugin、碰撞偵測：ODE）以及 Entity Tree 中的場景元素（ground_plane、sunUTC、rc_cessna_0）。
+
 ## 快速啟動
 
 ```bash
