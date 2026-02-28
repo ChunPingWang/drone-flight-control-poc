@@ -1,5 +1,8 @@
-# PX4 source (cloned separately, has its own git)
-PX4-Autopilot/
-
 # QGroundControl binary
 *.AppImage
+
+# Python virtual environment
+.venv/
+
+# PX4 build output
+build/
