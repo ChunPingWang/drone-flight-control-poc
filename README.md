@@ -90,6 +90,142 @@ QGC 會自動透過 UDP 14550 連接到 PX4 SITL，無需額外設定。
 3. 啟動 QGroundControl → 自動連接，顯示飛機位置和狀態
 4. `commander land` → 飛機降落
 
+## 深入文件
+
+本 PoC 包含兩份深入技術文件，分別解析兩大開源飛控的感測器融合與 PID 調校：
+
+| 文件 | 飛控框架 | 內容 |
+|------|---------|------|
+| [PX4 EKF2 感測器融合與 PID 調校](docs/PX4_EKF2_Fusion_and_PID_Tuning.md) | PX4 | EKF2 誤差狀態公式、25 維狀態向量、空速/側滑融合、串級 PID + FF 調校 |
+| [ArduPlane EKF3 感測器融合與 PID 調校](docs/ArduPlane_EKF3_Fusion_and_PID_Tuning.md) | ArduPilot | EKF3 感測器親和性與車道切換、24 維狀態向量、FF 主導 + PID 修正調校 |
+
+### PX4 EKF2 vs ArduPlane EKF3 關鍵差異
+
+| 面向 | PX4 EKF2 | ArduPlane EKF3 |
+|------|----------|----------------|
+| 狀態向量 | 25 元素（含地形高度） | 24 元素（地形獨立處理） |
+| 感測器親和性 | 無 — 上游選擇感測器 | 有 — 各車道可綁定不同 GPS/磁力計/空速計 |
+| 車道切換 | 多實例選擇器 | 累積誤差閾值（`EK3_ERR_THRESH`） |
+| 後備機制 | 無 | DCM 後備估計器 |
+| D 項使用 | 預設 0，通常不調 | 主動使用並配備三組低通濾波器 |
+| 控制哲學 | 平衡的 PID + FF | FF 為主，PID 為修正 |
+| 姿態環 | 時間常數法（`FW_R_TC`） | 明確轉換參數（`RLL2SRV_TCONST`） |
+
+---
+
+## 模擬器整合方式比較
+
+### 四種組合架構
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        飛控框架 × 模擬器                             │
+├─────────────────────────────────┬───────────────────────────────────┤
+│         Gazebo Harmonic         │            X-Plane 12             │
+├────────────────┬────────────────┼────────────────┬──────────────────┤
+│   PX4 + Gazebo │ ArduPlane +    │  PX4 + X-Plane │ ArduPlane +      │
+│                │ Gazebo         │                │ X-Plane          │
+│   gz-transport │ JSON/UDP       │  MAVLink/TCP   │ DREF/UDP         │
+│   (Protobuf)   │ port 9002      │  port 4560     │ port 49000/49001 │
+│   鎖步同步      │ 部分鎖步       │  非鎖步         │ 非鎖步            │
+└────────────────┴────────────────┴────────────────┴──────────────────┘
+```
+
+### 1. PX4 + Gazebo（本 PoC 使用）
+
+**連接方式**：GZBridge 模組透過 gz-transport（Protobuf / 共享記憶體）直連 Gazebo，**不經過 MAVLink**。
+
+```bash
+# 一行指令啟動
+make px4_sitl gz_rc_cessna
+
+# 無 GUI / 加速模擬
+HEADLESS=1 PX4_SIM_SPEED_FACTOR=2 make px4_sitl gz_rc_cessna
+```
+
+**優勢**：免費開源、單一 `make` 指令、鎖步同步可重現、支援 CI/CD headless、多機模擬
+**劣勢**：空氣動力學為簡化 LiftDrag 插件、僅 2 個固定翼模型、視覺品質基本
+
+### 2. PX4 + X-Plane
+
+**連接方式**：[px4xplane](https://github.com/alireza787b/px4xplane) 插件透過 MAVLink Simulator API（TCP 4560）橋接 X-Plane 與 PX4 SITL。
+
+```bash
+# 需安裝 px4xplane 插件到 X-Plane，並使用分支版 PX4
+git clone https://github.com/alireza787b/PX4-Autopilot-Me.git --recursive
+cd PX4-Autopilot-Me && git checkout px4xplane-sitl
+make px4_sitl_default xplane_cessna172
+```
+
+**優勢**：最高空氣動力學精度（葉片元素理論）、照片級視覺、真實天氣、大量飛機模型
+**劣勢**：需購買 X-Plane（~$60）、需分支版 PX4、非鎖步、高 GPU 需求、不支援 CI/CD
+
+### 3. ArduPlane + Gazebo
+
+**連接方式**：[ardupilot_gazebo](https://github.com/ArduPilot/ardupilot_gazebo) 插件透過 JSON/UDP（port 9002）傳送感測器資料。
+
+```bash
+# 安裝 ArduPilot
+git clone https://github.com/ArduPilot/ardupilot.git --recursive
+cd ardupilot && Tools/environment_install/install-prereqs-ubuntu.sh -y
+
+# 建置 Gazebo 插件
+git clone https://github.com/ArduPilot/ardupilot_gazebo ~/gz_ws/src/ardupilot_gazebo
+cd ~/gz_ws/src/ardupilot_gazebo && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo && make -j4
+
+# 啟動（需兩個終端）
+gz sim -v4 -r zephyr_runway.sdf                                    # 終端 1
+sim_vehicle.py -v ArduPlane -f gazebo-zephyr --model JSON --console  # 終端 2
+```
+
+**優勢**：免費開源、ArduPlane 固定翼功能最成熟、JSON 介面易擴展、不需 ROS
+**劣勢**：需分別建置插件、固定翼模型少（主要是 Zephyr）、需設定環境變數、需兩個終端
+
+### 4. ArduPlane + X-Plane
+
+**連接方式**：使用 X-Plane 原生 UDP 網路介面（DREF 系統），**不需安裝插件**。
+
+```bash
+# 在 X-Plane 中設定：Settings → Data Output → 啟用 UDP，Rate 50 Hz
+# 目標 IP: 127.0.0.1，目標 Port: 49001
+
+# 啟動 ArduPlane SITL
+sim_vehicle.py -v ArduPlane -D -f xplane --console --map
+```
+
+**優勢**：X-Plane 不需裝插件、最高氣動精度、最多固定翼機型選擇、支援滑翔研究
+**劣勢**：需購買 X-Plane、非鎖步、50 Hz 更新率（較低）、需手動設定網路
+
+### 綜合比較表
+
+| 項目 | PX4 + Gazebo | PX4 + X-Plane | ArduPlane + Gazebo | ArduPlane + X-Plane |
+|------|:---:|:---:|:---:|:---:|
+| **氣動精度** | 低-中 | 高 | 低-中 | 高 |
+| **設定難度** | 很低 | 中-高 | 中 | 中 |
+| **效能需求** | 低 | 高 | 低-中 | 高 |
+| **視覺品質** | 基本 | 照片級 | 基本 | 照片級 |
+| **鎖步/可重現** | 有 | 無 | 部分 | 無 |
+| **CI/CD 友善** | 有 | 無 | 部分 | 無 |
+| **固定翼模型數** | 2 | 大量 | 1 | 大量 |
+| **費用** | 免費 | ~$60 | 免費 | ~$60 |
+| **通訊協定** | gz-transport | MAVLink/TCP | JSON/UDP | DREF/UDP |
+| **固定翼成熟度** | 良好 | 良好 | 最佳 | 最佳 |
+
+### 選擇建議
+
+| 場景 | 推薦組合 |
+|------|---------|
+| CI/CD 自動化測試 | **PX4 + Gazebo** |
+| 高精度氣動研究 | **PX4 + X-Plane** 或 **ArduPlane + X-Plane** |
+| ArduPlane 固定翼開發 | **ArduPlane + Gazebo** |
+| 滑翔研究 / 真實機型測試 | **ArduPlane + X-Plane** |
+| 多機 / 蜂群模擬 | **PX4 + Gazebo** |
+| 照片級展示 / Demo | **PX4 + X-Plane** |
+| 快速原型開發 | **PX4 + Gazebo**（本 PoC） |
+
+---
+
 ## 飛控核心原理：PID 控制器
 
 PX4 的飛行控制核心是 **PID 控制器**。無論是維持高度、控制航向還是穩定姿態，背後都是 PID 在運作。
